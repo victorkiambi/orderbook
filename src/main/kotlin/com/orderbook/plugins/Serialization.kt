@@ -10,10 +10,12 @@ import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
+import io.ktor.server.plugins.callloging.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import org.slf4j.event.Level
 import java.util.*
 
 fun Application.configureSerialization() {
@@ -45,6 +47,9 @@ fun Application.configureSerialization() {
         }
     }
 
+    install(CallLogging) {
+        level = Level.INFO
+    }
     routing {
         val service = OrderBookService()
         get("/json/kotlinx-serialization") {
@@ -68,15 +73,27 @@ fun Application.configureSerialization() {
             call.respond(mapOf("token" to token))
         }
         authenticate {
-            get("/orders/order-book"){
+            get("/orders/order-book") {
                 call.respond(service.getOrderBook())
             }
 
-            post("/orders/limit"){
+            post("/orders/limit") {
                 val request = call.receive<Order>()
-                service.addOrder(request)
-                call.respond(HttpStatusCode.OK, "Order placed: $request")
+                val response = service.addOrder(request)
+
+                if (response != null) {
+                    call.respond(HttpStatusCode.OK, response)
+                } else {
+                    call.respond(HttpStatusCode.OK, "No match")
+                }
+
             }
+            get("/orders/trade-history") {
+                val tradeHistory = service.getTradeHistory()
+                call.respond(HttpStatusCode.OK, tradeHistory)
+            }
+
+
         }
     }
 }
