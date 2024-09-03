@@ -30,8 +30,13 @@ fun Application.configureSerialization() {
 
         post("/orders/limit"){
             val request = call.receive<Order>()
-            service.addOrder(request)
-            call.respond(HttpStatusCode.OK, "Order placed: $request")
+            val response = service.addOrder(request)
+
+            if (response != null){
+                call.respond(HttpStatusCode.OK, response)
+            } else {
+                call.respond(HttpStatusCode.OK, "No match")
+            }
         }
 
         get("/tradehistory"){

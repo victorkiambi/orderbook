@@ -44,7 +44,6 @@ class ApplicationTest {
             )
         }.apply {
             assertEquals(HttpStatusCode.OK, status)
-            assertEquals("Order placed: Order(allowMargin=true, customerOrderId=1, pair=BTCUSD, postOnly=true, price=10000, quantity=1, side=BUY, timeInForce=GTC)", bodyAsText())
         }
     }
 
@@ -68,7 +67,82 @@ class ApplicationTest {
             )
         }.apply {
             assertEquals(HttpStatusCode.OK, status)
-            assertEquals("Order placed: Order(allowMargin=true, customerOrderId=1, pair=BTCUSD, postOnly=true, price=10000, quantity=1, side=SELL, timeInForce=GTC)", bodyAsText())
+        }
+    }
+
+    @Test
+    fun testAddOrderNoMatch() = testApplication {
+        client.post("/orders/limit") {
+            header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            setBody(
+                """
+                {
+                    "allowMargin": "true",
+                    "customerOrderId": "1",
+                    "pair": "BTCUSD",
+                    "postOnly": true,
+                    "price": "10000",
+                    "quantity": "1",
+                    "side": "SELL",
+                    "timeInForce": "GTC"
+                }
+                """.trimIndent()
+            )
+        }.apply {
+            assertEquals(HttpStatusCode.OK, status)
+            //assert that there is no trade
+            assertEquals("No match", bodyAsText())
+        }
+    }
+
+    @Test
+    fun testAddMatchingOrders() = testApplication {
+        client.post("/orders/limit") {
+            header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            setBody(
+                """
+            {
+                "allowMargin": "true",
+                "customerOrderId": "1",
+                "pair": "BTCUSD",
+                "postOnly": true,
+                "price": "10000",
+                "quantity": "1",
+                "side": "SELL",
+                "timeInForce": "GTC"
+            }
+            """.trimIndent()
+            )
+        }.apply {
+            assertEquals(HttpStatusCode.OK, status)
+        }
+
+        client.post("/orders/limit") {
+            header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            setBody(
+                """
+            {
+                "allowMargin": "true",
+                "customerOrderId": "2",
+                "pair": "BTCUSD",
+                "postOnly": true,
+                "price": "10000",
+                "quantity": "1",
+                "side": "BUY",
+                "timeInForce": "GTC"
+            }
+            """.trimIndent()
+            )
+        }.apply {
+            assertEquals(HttpStatusCode.OK, status)
+            //assert that there is a trade
+            val currentTimestamp = System.currentTimeMillis().toString()
+            assertEquals(
+                """
+    {"currencyPair":"2","id":"1","price":"10000","quantity":"1","quoteVolume":"BTCUSD","sequenceId":1,"takerSide":"BUY","tradedAt":"$currentTimestamp"}
+    """.trimIndent(),
+                bodyAsText().replace("\"tradedAt\":\"[^\"]*\"".toRegex(), "\"tradedAt\":\"$currentTimestamp\"")
+            )
         }
     }
 }

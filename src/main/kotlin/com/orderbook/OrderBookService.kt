@@ -8,8 +8,10 @@ import org.slf4j.LoggerFactory
 class OrderBookService {
     private val asks = mutableListOf<Order>()
     private val bids = mutableListOf<Order>()
-    private var trades = mutableListOf<Trade>()
+    var trades = mutableListOf<Trade>()
     private val logger = LoggerFactory.getLogger(OrderBookService::class.java)
+
+
     fun getOrderBook(): OrderBook {
         return OrderBook(
             asks, bids,
@@ -18,35 +20,30 @@ class OrderBookService {
         )
     }
 
-    fun addOrder(order: Order) {
+    fun addOrder(order: Order): Trade? {
         if (order.side.uppercase() == "BUY") {
             bids.add(order)
             bids.sortByDescending { it.price.toDouble() }
-            //match orders
-            val status = matchOrders()
-            return status
 
         } else if (order.side.uppercase() == "SELL") {
             asks.add(order)
             asks.sortBy { it.price.toDouble() }
-
-            //match orders
-            matchOrders()
         }
+        return matchOrders()
     }
 
     //match orders
-    private fun matchOrders(){
+    private fun matchOrders(): Trade? {
         //if there are no bids or asks, return
         if(bids.isEmpty() || asks.isEmpty()){
             logger.info("No bids or asks")
-            return
+            return null
         }
 
         //if the highest bid is less than the lowest ask, return
         if(bids.first().price.toDouble() < asks.first().price.toDouble()){
             logger.info("No match")
-            return
+            return null
         }
 
         //if the highest bid is greater than the lowest ask, match the orders
@@ -72,6 +69,7 @@ class OrderBookService {
             asks.removeAt(0)
 
             logger.info("Trade created: $trade")
+            return trade
         }
 
         //if the bid quantity is less than the ask quantity, create a trade
@@ -92,6 +90,7 @@ class OrderBookService {
             bids.removeAt(0)
 
             logger.info("Trade created: $trade")
+            return trade
         }
 
         //if the bid quantity is equal to the ask quantity, create a trade
@@ -112,6 +111,7 @@ class OrderBookService {
             asks.removeAt(0)
 
             logger.info("Trade created: $trade")
+            return trade
         }
     }
 
