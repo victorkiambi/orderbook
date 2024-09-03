@@ -82,7 +82,7 @@ fun Application.configureSerialization() {
                 .withAudience(audience)
                 .withIssuer(issuer)
                 .withClaim(request.username, request.password)
-                .withExpiresAt(Date(System.currentTimeMillis() + 60000))
+                .withExpiresAt(Date(System.currentTimeMillis() +10 * 60 * 1000))
                 .sign(Algorithm.HMAC256(secret))
             call.respond(mapOf("token" to token))
         }
