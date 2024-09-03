@@ -196,4 +196,50 @@ class MatchingEngineTest {
         //assert that the second trade quantity is 1
         assert(orderBookService.trades[1].quantity == "1")
     }
+
+    @Test
+    fun testAddBidOrderMatchQuantityMultipleBids() {
+        val orderBookService = OrderBookService()
+        val order1 = Order(
+            allowMargin = "true",
+            customerOrderId = "1",
+            pair = "BTCUSD",
+            postOnly = true,
+            price = "10000",
+            quantity = "1",
+            side = "SELL",
+            timeInForce = "GTC"
+        )
+        orderBookService.addOrder(order1)
+        val order2 = Order(
+            allowMargin = "true",
+            customerOrderId = "2",
+            pair = "BTCUSD",
+            postOnly = true,
+            price = "10000",
+            quantity = "2",
+            side = "BUY",
+            timeInForce = "GTC"
+        )
+        orderBookService.addOrder(order2)
+        val order3 = Order(
+            allowMargin = "true",
+            customerOrderId = "3",
+            pair = "BTCUSD",
+            postOnly = true,
+            price = "10000",
+            quantity = "1",
+            side = "BUY",
+            timeInForce = "GTC"
+        )
+        orderBookService.addOrder(order3)
+        val orderBook = orderBookService.getOrderBook()
+        assert(orderBook.Bids.isNotEmpty())
+        assert(orderBook.Asks.isEmpty())
+
+        //assert that there's 1 trade
+        assert(orderBookService.trades.size == 1)
+        //assert that the first trade quantity is 1
+        assert(orderBookService.trades.first().quantity == "1")
+    }
 }

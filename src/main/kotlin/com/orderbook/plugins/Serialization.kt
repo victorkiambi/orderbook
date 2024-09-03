@@ -12,9 +12,11 @@ import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
 import io.ktor.server.plugins.callloging.*
 import io.ktor.server.plugins.contentnegotiation.*
+import io.ktor.server.plugins.requestvalidation.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.serialization.SerializationException
 import org.slf4j.event.Level
 import java.util.*
 
@@ -50,13 +52,25 @@ fun Application.configureSerialization() {
     install(CallLogging) {
         level = Level.INFO
     }
+    install(RequestValidation) {
+        validate<Order> { order ->
+            val errors = mutableListOf<String>()
+            if (order.customerOrderId.isBlank()) errors.add("Customer Order ID is required")
+            if (order.pair.isBlank()) errors.add("Pair is required")
+
+            if(order.price.isBlank()) errors.add("Price is required")
+            else if (order.price.toDouble() <= 0) errors.add("Invalid Price")
+
+            if (order.quantity.isBlank()) errors.add("Quantity is required")
+            else if (order.quantity.toDouble() <= 0) errors.add("Invalid quantity")
+
+            if (order.side !in listOf("BUY", "SELL")) errors.add("Side must be either BUY or SELL")
+            if (errors.isEmpty()) ValidationResult.Valid else ValidationResult.Invalid(errors)
+        }
+    }
     routing {
         val service = OrderBookService()
-        get("/json/kotlinx-serialization") {
-                call.respond(mapOf("hello" to "world"))
-            }
-        post("/login"){
-            //check username and password
+        post("/login") {
             val request = call.receive<User>()
 
             if (request.username != "admin" || request.password != "admin") {
@@ -78,13 +92,20 @@ fun Application.configureSerialization() {
             }
 
             post("/orders/limit") {
-                val request = call.receive<Order>()
-                val response = service.addOrder(request)
+                try {
+                    val request = call.receive<Order>()
+                    val response = service.addOrder(request)
 
-                if (response != null) {
-                    call.respond(HttpStatusCode.OK, response)
-                } else {
-                    call.respond(HttpStatusCode.OK, "No match")
+                    if (response != null) {
+                        call.respond(HttpStatusCode.OK, response)
+                    } else {
+                        call.respond(HttpStatusCode.OK, mapOf("message" to "No match"))
+                    }
+
+                } catch (e: Exception) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("error" to e.message))
+                } catch (e: SerializationException) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("error" to e.message))
                 }
 
             }
@@ -93,7 +114,7 @@ fun Application.configureSerialization() {
                 call.respond(HttpStatusCode.OK, tradeHistory)
             }
 
-
         }
     }
+
 }
