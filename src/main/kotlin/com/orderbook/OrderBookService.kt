@@ -26,13 +26,13 @@ class OrderBookService {
         val orderId = UUID.randomUUID().toString()
         if (limitOrder.side.uppercase() == "BUY") {
             bids.offer(limitOrder)
-            addToOrders(limitOrder, orderId, "PLACED")
-            addToOpenOrders(limitOrder, orderId, "PLACED")
+            addToOrders(limitOrder, orderId, OrderStatus.PLACED.toString())
+            addToOpenOrders(limitOrder, orderId, limitOrder.quantity,OrderStatus.PLACED.toString())
 
         } else if (limitOrder.side.uppercase() == "SELL") {
             asks.offer(limitOrder)
-            addToOrders(limitOrder, orderId, "PLACED")
-            addToOpenOrders(limitOrder, orderId, "PLACED")
+            addToOrders(limitOrder, orderId, OrderStatus.PLACED.toString())
+            addToOpenOrders(limitOrder, orderId,limitOrder.quantity, OrderStatus.PLACED.toString())
         }
         matchOrders()
         return orderId
@@ -40,7 +40,7 @@ class OrderBookService {
 
     private fun matchOrders(): Trade? {
         if (bids.isEmpty() || asks.isEmpty()) {
-            logger.info("No bids or asks")
+            logger.info("No bids or asks available")
             return null
         }
 
@@ -54,15 +54,21 @@ class OrderBookService {
         }
 
         val tradeQuantity = minOf(bid.quantity, ask.quantity)
+
+        if (tradeQuantity.toDouble() <= 0.0) {
+            logger.info("Trade quantity is less than or equal to 0")
+            return null
+        }
+
         val trade = Trade(
-            bid.customerOrderId,
-            ask.customerOrderId,
-            bid.price,
-            tradeQuantity,
-            bid.pair,
-            tradedAt = System.currentTimeMillis().toString(),
-            takerSide = bid.side,
-            sequenceId = 1,
+            price = ask.price,
+            quantity = tradeQuantity,
+            takerSide = if (bid.side == "BUY") "SELL" else "BUY",
+            tradedAt = Date().toString(),
+            currencyPair = bid.pair,
+            id = UUID.randomUUID().toString(),
+            quoteVolume = (tradeQuantity.toDouble() * ask.price.toDouble()).toString(),
+            sequenceId = 1
         )
 
         trades.add(trade)
@@ -71,20 +77,26 @@ class OrderBookService {
         bid.quantity = (bid.quantity.toDouble() - tradeQuantity.toDouble()).toString()
         ask.quantity = (ask.quantity.toDouble() - tradeQuantity.toDouble()).toString()
 
-        val orderId = UUID.randomUUID().toString()
+        val newOrderId = UUID.randomUUID().toString()
         // Remove fully fulfilled orders
         if (bid.quantity.toDouble() == 0.0){
             bids.poll()
-            updateOrderStatus(bid.customerOrderId, "FILLED")
-        } else
-            addToOpenOrders(bid, orderId, "PARTIALLY_FILLED")
+            updateOrderStatus(bid.customerOrderId, OrderStatus.FILLED.toString())
+        } else{
+            bids.poll()
+            updateOrderStatus(bid.customerOrderId, OrderStatus.PARTIALLY_FILLED.toString())
+            createNewOrderWithRemainingQuantity(ask, newOrderId)
+        }
 
         if (ask.quantity.toDouble() == 0.0){
             asks.poll()
-            updateOrderStatus(ask.customerOrderId, "FILLED")
+            updateOrderStatus(ask.customerOrderId, OrderStatus.FILLED.toString())
         }
-        else
-            addToOpenOrders(ask, orderId, "PARTIALLY_FILLED")
+        else {
+            asks.poll()
+            updateOrderStatus(ask.customerOrderId, OrderStatus.PARTIALLY_FILLED.toString())
+            createNewOrderWithRemainingQuantity(ask, newOrderId)
+        }
 
         return trade
     }
@@ -98,17 +110,34 @@ class OrderBookService {
         }
     }
 
+    private fun createNewOrderWithRemainingQuantity(limitOrder: LimitOrder, newOrderId: String) {
+        // Create a new order for the remaining quantity
+        val newOrder = limitOrder.copy(
+            customerOrderId = newOrderId,
+            quantity = limitOrder.quantity
+        )
+        if (newOrder.side.uppercase() == "BUY") {
+            bids.offer(newOrder)
+        } else {
+            asks.offer(newOrder)
+        }
+
+        addToOrders(newOrder, newOrderId, OrderStatus.PLACED.toString())
+        addToOpenOrders(newOrder, newOrderId, newOrder.quantity, OrderStatus.PLACED.toString())
+        logger.info("New order created with remaining quantity: $newOrder")
+    }
+
     //add order to open orders
-    private fun addToOpenOrders(limitOrder: LimitOrder, orderId: String, status: String) {
+    private fun addToOpenOrders(limitOrder: LimitOrder, orderId: String, remainingQuantity: String, status: String) {
         val openOrder = OpenOrder(
             allowMargin = false,
             createdAt = Date().toString(),
             currencyPair = limitOrder.pair,
-            filledPercentage = "0",
+            filledPercentage = (100 - (remainingQuantity.toDouble() / limitOrder.quantity.toDouble())*100).toString(),
             orderId =orderId,
             originalQuantity = limitOrder.quantity,
             price = limitOrder.price,
-            remainingQuantity = limitOrder.quantity,
+            remainingQuantity = remainingQuantity,
             side = limitOrder.side,
             status = status,
             timeInForce = "GTC",

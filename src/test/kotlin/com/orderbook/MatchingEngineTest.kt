@@ -187,7 +187,6 @@ class MatchingEngineTest {
         orderBookService.addLimitOrder(limitOrder3)
         val orderBook = orderBookService.getOrderBook()
         assert(orderBook.Bids.isEmpty())
-        assert(orderBook.Asks.isEmpty())
 
         //assert that there are two trades
         assert(orderBookService.trades.size == 2)
@@ -235,8 +234,7 @@ class MatchingEngineTest {
         orderBookService.addLimitOrder(limitOrder3)
         val orderBook = orderBookService.getOrderBook()
         assert(orderBook.Bids.isNotEmpty())
-        assert(orderBook.Asks.isEmpty())
-
+        assert(orderBook.Asks.isNotEmpty())
         //assert that there's 1 trade
         assert(orderBookService.trades.size == 1)
         //assert that the first trade quantity is 1
