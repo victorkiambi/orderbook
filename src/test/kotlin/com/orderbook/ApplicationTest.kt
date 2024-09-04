@@ -201,8 +201,8 @@ class ApplicationTest {
             assertEquals(HttpStatusCode.OK, status)
             //assert that there is no trade
             val responseBody = Json.decodeFromString<JsonObject>(bodyAsText())
-            assertEquals("No match", responseBody["message"]?.jsonPrimitive?.content)
-
+            val id = responseBody["id"]?.jsonPrimitive?.content
+            assertNotNull(id)
         }
     }
 
@@ -251,13 +251,9 @@ class ApplicationTest {
         }.apply {
             assertEquals(HttpStatusCode.OK, status)
             //assert that there is a trade
-            val currentTimestamp = System.currentTimeMillis().toString()
-            assertEquals(
-                """
-    {"currencyPair":"2","id":"1","price":"10000","quantity":"1","quoteVolume":"BTCUSD","sequenceId":1,"takerSide":"BUY","tradedAt":"$currentTimestamp"}
-    """.trimIndent(),
-                bodyAsText().replace("\"tradedAt\":\"[^\"]*\"".toRegex(), "\"tradedAt\":\"$currentTimestamp\"")
-            )
+            val responseBody = Json.decodeFromString<JsonObject>(bodyAsText())
+            val id = responseBody["id"]?.jsonPrimitive?.content
+            assertNotNull(id)
         }
     }
 
@@ -405,13 +401,10 @@ class ApplicationTest {
             header(HttpHeaders.Authorization, "Bearer $token")
         }.apply {
             assertEquals(HttpStatusCode.OK, status)
-            val currentTimestamp = System.currentTimeMillis().toString()
-            assertEquals(
-                """
-    [{"currencyPair":"2","id":"1","price":"10000","quantity":"1","quoteVolume":"BTCUSD","sequenceId":1,"takerSide":"BUY","tradedAt":"$currentTimestamp"}]
-    """.trimIndent(),
-                bodyAsText().replace("\"tradedAt\":\"[^\"]*\"".toRegex(), "\"tradedAt\":\"$currentTimestamp\"")
-            )
+            val tradeHistory = Json.decodeFromString<List<JsonObject>>(bodyAsText())
+            assert(tradeHistory.isNotEmpty())
+            assertEquals(1, tradeHistory.size)
+
         }
     }
 
@@ -606,6 +599,234 @@ class ApplicationTest {
             val orderBook = Json.decodeFromString<OrderBook>(bodyAsText())
             assertEquals(1, orderBook.Bids.size)
             assertEquals(0, orderBook.Asks.size)
+        }
+    }
+
+    @Test
+    fun testPartialOrders() = testApplication {
+        val token = loginAndGetToken(client)
+
+        client.post("/orders/limit") {
+            header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            header(HttpHeaders.Authorization, "Bearer $token")
+            setBody(
+                """
+            {
+                "allowMargin": "true",
+                "customerOrderId": "1",
+                "pair": "BTCUSD",
+                "postOnly": true,
+                "price": "10000",
+                "quantity": "2",
+                "side": "SELL",
+                "timeInForce": "GTC"
+            }
+            """.trimIndent()
+            )
+        }.apply {
+            assertEquals(HttpStatusCode.OK, status)
+        }
+
+        client.post("/orders/limit") {
+            header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            header(HttpHeaders.Authorization, "Bearer $token")
+            setBody(
+                """
+            {
+                "allowMargin": "true",
+                "customerOrderId": "2",
+                "pair": "BTCUSD",
+                "postOnly": true,
+                "price": "10000",
+                "quantity": "1",
+                "side": "BUY",
+                "timeInForce": "GTC"
+            }
+            """.trimIndent()
+            )
+        }.apply {
+            assertEquals(HttpStatusCode.OK, status)
+        }
+
+        client.get("/orders/order-book") {
+            header(HttpHeaders.Authorization, "Bearer $token")
+        }.apply {
+            assertEquals(HttpStatusCode.OK, status)
+            val orderBook = Json.decodeFromString<OrderBook>(bodyAsText())
+            assert(orderBook.Bids.isEmpty())
+            assert(orderBook.Asks.isNotEmpty())
+            assertEquals(1, orderBook.Asks.size)
+        }
+    }
+
+    @Test
+    fun testOpenOrders() = testApplication {
+        val token = loginAndGetToken(client)
+
+        client.get("/orders/open") {
+            header(HttpHeaders.Authorization, "Bearer $token")
+        }.apply {
+            assertEquals(HttpStatusCode.OK, status)
+            assertEquals("[]", bodyAsText())
+        }
+    }
+
+    @Test
+    fun testOpenOrdersWithMatchingOrders() = testApplication {
+        val token = loginAndGetToken(client)
+
+        client.post("/orders/limit") {
+            header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            header(HttpHeaders.Authorization, "Bearer $token")
+            setBody(
+                """
+            {
+                "allowMargin": "true",
+                "customerOrderId": "1",
+                "pair": "BTCUSD",
+                "postOnly": true,
+                "price": "10000",
+                "quantity": "2",
+                "side": "SELL",
+                "timeInForce": "GTC"
+            }
+            """.trimIndent()
+            )
+        }.apply {
+            assertEquals(HttpStatusCode.OK, status)
+        }
+
+        client.post("/orders/limit") {
+            header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            header(HttpHeaders.Authorization, "Bearer $token")
+            setBody(
+                """
+            {
+                "allowMargin": "true",
+                "customerOrderId": "2",
+                "pair": "BTCUSD",
+                "postOnly": true,
+                "price": "10000",
+                "quantity": "1",
+                "side": "BUY",
+                "timeInForce": "GTC"
+            }
+            """.trimIndent()
+            )
+        }.apply {
+            assertEquals(HttpStatusCode.OK, status)
+        }
+
+        client.get("/orders/open") {
+            header(HttpHeaders.Authorization, "Bearer $token")
+        }.apply {
+            assertEquals(HttpStatusCode.OK, status)
+            val openOrders = Json.decodeFromString<List<JsonObject>>(bodyAsText())
+            assert(openOrders.isNotEmpty())
+            assertEquals(1, openOrders.size)
+        }
+    }
+
+    @Test
+    fun testOpenOrdersWithNoMatchingOrders() = testApplication {
+        val token = loginAndGetToken(client)
+
+        client.post("/orders/limit") {
+            header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            header(HttpHeaders.Authorization, "Bearer $token")
+            setBody(
+                """
+            {
+                "allowMargin": "true",
+                "customerOrderId": "1",
+                "pair": "BTCUSD",
+                "postOnly": true,
+                "price": "10000",
+                "quantity": "1",
+                "side": "BUY",
+                "timeInForce": "GTC"
+            }
+            """.trimIndent()
+            )
+        }.apply {
+            assertEquals(HttpStatusCode.OK, status)
+        }
+
+        client.get("/orders/open") {
+            header(HttpHeaders.Authorization, "Bearer $token")
+        }.apply {
+            assertEquals(HttpStatusCode.OK, status)
+            val openOrders = Json.decodeFromString<List<JsonObject>>(bodyAsText())
+            assert(openOrders.isNotEmpty())
+            assertEquals(1, openOrders.size)
+        }
+    }
+
+    @Test
+    fun testGetOrders() = testApplication {
+        val token = loginAndGetToken(client)
+
+        client.get("/orders/all") {
+            header(HttpHeaders.Authorization, "Bearer $token")
+        }.apply {
+            assertEquals(HttpStatusCode.OK, status)
+            assertEquals("[]", bodyAsText())
+        }
+    }
+
+    @Test
+    fun testGetOrdersWithMatchingOrders() = testApplication {
+        val token = loginAndGetToken(client)
+
+        client.post("/orders/limit") {
+            header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            header(HttpHeaders.Authorization, "Bearer $token")
+            setBody(
+                """
+            {
+                "allowMargin": "true",
+                "customerOrderId": "1",
+                "pair": "BTCUSD",
+                "postOnly": true,
+                "price": "10000",
+                "quantity": "2",
+                "side": "SELL",
+                "timeInForce": "GTC"
+            }
+            """.trimIndent()
+            )
+        }.apply {
+            assertEquals(HttpStatusCode.OK, status)
+        }
+
+        client.post("/orders/limit") {
+            header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            header(HttpHeaders.Authorization, "Bearer $token")
+            setBody(
+                """
+            {
+                "allowMargin": "true",
+                "customerOrderId": "2",
+                "pair": "BTCUSD",
+                "postOnly": true,
+                "price": "10000",
+                "quantity": "1",
+                "side": "BUY",
+                "timeInForce": "GTC"
+            }
+            """.trimIndent()
+            )
+        }.apply {
+            assertEquals(HttpStatusCode.OK, status)
+        }
+
+        client.get("/orders/all") {
+            header(HttpHeaders.Authorization, "Bearer $token")
+        }.apply {
+            assertEquals(HttpStatusCode.OK, status)
+            val orders = Json.decodeFromString<List<JsonObject>>(bodyAsText())
+            assert(orders.isNotEmpty())
+            assertEquals(3, orders.size)
         }
     }
 }

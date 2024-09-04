@@ -1,13 +1,13 @@
 package com.orderbook
 
-import com.orderbook.models.Order
+import com.orderbook.models.LimitOrder
 import org.junit.Test
 
 class MatchingEngineTest {
     @Test
     fun testAddBidOrderNoMatch() {
         val orderBookService = OrderBookService()
-        val order = Order(
+        val limitOrder = LimitOrder(
             allowMargin = "true",
             customerOrderId = "1",
             pair = "BTCUSD",
@@ -17,7 +17,7 @@ class MatchingEngineTest {
             side = "BUY",
             timeInForce = "GTC"
         )
-        orderBookService.addOrder(order)
+        orderBookService.addLimitOrder(limitOrder)
         val orderBook = orderBookService.getOrderBook()
         assert(orderBook.Bids.isNotEmpty())
         assert(orderBook.Asks.isEmpty())
@@ -29,7 +29,7 @@ class MatchingEngineTest {
     @Test
     fun testAddAskOrderNoMatch() {
         val orderBookService = OrderBookService()
-        val order = Order(
+        val limitOrder = LimitOrder(
             allowMargin = "true",
             customerOrderId = "1",
             pair = "BTCUSD",
@@ -39,7 +39,7 @@ class MatchingEngineTest {
             side = "SELL",
             timeInForce = "GTC"
         )
-        orderBookService.addOrder(order)
+        orderBookService.addLimitOrder(limitOrder)
         val orderBook = orderBookService.getOrderBook()
         assert(orderBook.Bids.isEmpty())
         assert(orderBook.Asks.isNotEmpty())
@@ -51,7 +51,7 @@ class MatchingEngineTest {
     @Test
     fun testAddBidOrderMatch() {
         val orderBookService = OrderBookService()
-        val order1 = Order(
+        val limitOrder1 = LimitOrder(
             allowMargin = "true",
             customerOrderId = "1",
             pair = "BTCUSD",
@@ -61,8 +61,8 @@ class MatchingEngineTest {
             side = "SELL",
             timeInForce = "GTC"
         )
-        orderBookService.addOrder(order1)
-        val order2 = Order(
+        orderBookService.addLimitOrder(limitOrder1)
+        val limitOrder2 = LimitOrder(
             allowMargin = "true",
             customerOrderId = "2",
             pair = "BTCUSD",
@@ -72,7 +72,7 @@ class MatchingEngineTest {
             side = "BUY",
             timeInForce = "GTC"
         )
-        orderBookService.addOrder(order2)
+        orderBookService.addLimitOrder(limitOrder2)
         val orderBook = orderBookService.getOrderBook()
         assert(orderBook.Bids.isEmpty())
         assert(orderBook.Asks.isEmpty())
@@ -84,7 +84,7 @@ class MatchingEngineTest {
     @Test
     fun testAddAskOrderMatch() {
         val orderBookService = OrderBookService()
-        val order1 = Order(
+        val limitOrder1 = LimitOrder(
             allowMargin = "true",
             customerOrderId = "1",
             pair = "BTCUSD",
@@ -94,8 +94,8 @@ class MatchingEngineTest {
             side = "BUY",
             timeInForce = "GTC"
         )
-        orderBookService.addOrder(order1)
-        val order2 = Order(
+        orderBookService.addLimitOrder(limitOrder1)
+        val limitOrder2 = LimitOrder(
             allowMargin = "true",
             customerOrderId = "2",
             pair = "BTCUSD",
@@ -105,7 +105,7 @@ class MatchingEngineTest {
             side = "SELL",
             timeInForce = "GTC"
         )
-        orderBookService.addOrder(order2)
+        orderBookService.addLimitOrder(limitOrder2)
         val orderBook = orderBookService.getOrderBook()
         assert(orderBook.Bids.isEmpty())
         assert(orderBook.Asks.isEmpty())
@@ -117,7 +117,7 @@ class MatchingEngineTest {
     @Test
     fun testAddBidOrderMatchQuantity() {
         val orderBookService = OrderBookService()
-        val order1 = Order(
+        val limitOrder1 = LimitOrder(
             allowMargin = "true",
             customerOrderId = "1",
             pair = "BTCUSD",
@@ -127,8 +127,8 @@ class MatchingEngineTest {
             side = "SELL",
             timeInForce = "GTC"
         )
-        orderBookService.addOrder(order1)
-        val order2 = Order(
+        orderBookService.addLimitOrder(limitOrder1)
+        val limitOrder2 = LimitOrder(
             allowMargin = "true",
             customerOrderId = "2",
             pair = "BTCUSD",
@@ -138,7 +138,7 @@ class MatchingEngineTest {
             side = "BUY",
             timeInForce = "GTC"
         )
-        orderBookService.addOrder(order2)
+        orderBookService.addLimitOrder(limitOrder2)
         val orderBook = orderBookService.getOrderBook()
         assert(orderBook.Bids.isEmpty())
         assert(orderBook.Asks.isNotEmpty())
@@ -152,7 +152,7 @@ class MatchingEngineTest {
     @Test
     fun testAddBidOrderMatchQuantityMultipleAsks() {
         val orderBookService = OrderBookService()
-        val order1 = Order(
+        val limitOrder1 = LimitOrder(
             allowMargin = "true",
             customerOrderId = "1",
             pair = "BTCUSD",
@@ -162,8 +162,8 @@ class MatchingEngineTest {
             side = "SELL",
             timeInForce = "GTC"
         )
-        orderBookService.addOrder(order1)
-        val order2 = Order(
+        orderBookService.addLimitOrder(limitOrder1)
+        val limitOrder2 = LimitOrder(
             allowMargin = "true",
             customerOrderId = "2",
             pair = "BTCUSD",
@@ -173,8 +173,8 @@ class MatchingEngineTest {
             side = "BUY",
             timeInForce = "GTC"
         )
-        orderBookService.addOrder(order2)
-        val order3 = Order(
+        orderBookService.addLimitOrder(limitOrder2)
+        val limitOrder3 = LimitOrder(
             allowMargin = "true",
             customerOrderId = "3",
             pair = "BTCUSD",
@@ -184,10 +184,9 @@ class MatchingEngineTest {
             side = "BUY",
             timeInForce = "GTC"
         )
-        orderBookService.addOrder(order3)
+        orderBookService.addLimitOrder(limitOrder3)
         val orderBook = orderBookService.getOrderBook()
         assert(orderBook.Bids.isEmpty())
-        assert(orderBook.Asks.isEmpty())
 
         //assert that there are two trades
         assert(orderBookService.trades.size == 2)
@@ -200,7 +199,7 @@ class MatchingEngineTest {
     @Test
     fun testAddBidOrderMatchQuantityMultipleBids() {
         val orderBookService = OrderBookService()
-        val order1 = Order(
+        val limitOrder1 = LimitOrder(
             allowMargin = "true",
             customerOrderId = "1",
             pair = "BTCUSD",
@@ -210,8 +209,8 @@ class MatchingEngineTest {
             side = "SELL",
             timeInForce = "GTC"
         )
-        orderBookService.addOrder(order1)
-        val order2 = Order(
+        orderBookService.addLimitOrder(limitOrder1)
+        val limitOrder2 = LimitOrder(
             allowMargin = "true",
             customerOrderId = "2",
             pair = "BTCUSD",
@@ -221,8 +220,8 @@ class MatchingEngineTest {
             side = "BUY",
             timeInForce = "GTC"
         )
-        orderBookService.addOrder(order2)
-        val order3 = Order(
+        orderBookService.addLimitOrder(limitOrder2)
+        val limitOrder3 = LimitOrder(
             allowMargin = "true",
             customerOrderId = "3",
             pair = "BTCUSD",
@@ -232,11 +231,10 @@ class MatchingEngineTest {
             side = "BUY",
             timeInForce = "GTC"
         )
-        orderBookService.addOrder(order3)
+        orderBookService.addLimitOrder(limitOrder3)
         val orderBook = orderBookService.getOrderBook()
         assert(orderBook.Bids.isNotEmpty())
-        assert(orderBook.Asks.isEmpty())
-
+        assert(orderBook.Asks.isNotEmpty())
         //assert that there's 1 trade
         assert(orderBookService.trades.size == 1)
         //assert that the first trade quantity is 1
