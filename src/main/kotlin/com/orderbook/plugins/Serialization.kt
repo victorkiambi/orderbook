@@ -3,7 +3,7 @@ package com.orderbook.plugins
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.orderbook.OrderBookService
-import com.orderbook.models.Order
+import com.orderbook.models.LimitOrder
 import com.orderbook.models.User
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
@@ -21,6 +21,8 @@ import org.slf4j.event.Level
 import java.util.*
 
 fun Application.configureSerialization() {
+    val service = OrderBookService()
+
     install(ContentNegotiation) {
         json()
     }
@@ -53,9 +55,14 @@ fun Application.configureSerialization() {
         level = Level.INFO
     }
     install(RequestValidation) {
-        validate<Order> { order ->
+        validate<LimitOrder> { order ->
             val errors = mutableListOf<String>()
-            if (order.customerOrderId.isBlank()) errors.add("Customer Order ID is required")
+            if (order.customerOrderId.isBlank()) {
+                errors.add("Customer Order ID is required")
+            }
+            if (!service.isCustomerOrderIdUnique(order.customerOrderId))
+                errors.add("Customer Order ID must be unique")
+
             if (order.pair.isBlank()) errors.add("Pair is required")
 
             if(order.price.isBlank()) errors.add("Price is required")
@@ -69,7 +76,6 @@ fun Application.configureSerialization() {
         }
     }
     routing {
-        val service = OrderBookService()
         post("/login") {
             val request = call.receive<User>()
 
@@ -93,14 +99,10 @@ fun Application.configureSerialization() {
 
             post("/orders/limit") {
                 try {
-                    val request = call.receive<Order>()
-                    val response = service.addOrder(request)
+                    val request = call.receive<LimitOrder>()
+                    val response = service.addLimitOrder(request)
 
-                    if (response != null) {
-                        call.respond(HttpStatusCode.OK, response)
-                    } else {
-                        call.respond(HttpStatusCode.OK, mapOf("message" to "No match"))
-                    }
+                    call.respond(HttpStatusCode.OK, mapOf("id" to response))
 
                 } catch (e: Exception) {
                     call.respond(HttpStatusCode.BadRequest, mapOf("error" to e.message))
@@ -114,9 +116,24 @@ fun Application.configureSerialization() {
                 call.respond(HttpStatusCode.OK, tradeHistory)
             }
 
-            get("/orders/open-orders") {
+            get("/orders/open") {
                 val openOrders = service.getOpenOrders()
                 call.respond(HttpStatusCode.OK, openOrders)
+            }
+
+            get("orders/orderId/{orderId}") {
+                val orderId = call.parameters["orderId"] ?: ""
+                val order = service.getOrderByOrderId(orderId)
+                if (order != null) {
+                    call.respond(HttpStatusCode.OK, order)
+                } else {
+                    call.respond(HttpStatusCode.NotFound, mapOf("message" to "Order not found"))
+                }
+            }
+
+            get("/orders/all") {
+                val orders = service.getOrders()
+                call.respond(HttpStatusCode.OK, orders)
             }
 
         }

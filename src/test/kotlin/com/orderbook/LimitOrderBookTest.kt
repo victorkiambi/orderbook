@@ -1,14 +1,14 @@
 package com.orderbook
 
-import com.orderbook.models.Order
+import com.orderbook.models.LimitOrder
 import kotlin.test.Test
 
 
-class OrderBookTest {
+class LimitOrderBookTest {
     @Test
     fun testAddOrder() {
         val orderBookService = OrderBookService()
-        val order = Order(
+        val limitOrder = LimitOrder(
             allowMargin = "true",
             customerOrderId = "1",
             pair = "BTCUSD",
@@ -18,7 +18,7 @@ class OrderBookTest {
             side = "BUY",
             timeInForce = "GTC"
         )
-        orderBookService.addOrder(order)
+        orderBookService.addLimitOrder(limitOrder)
         val orderBook = orderBookService.getOrderBook()
         assert(orderBook.Bids.isNotEmpty())
     }
@@ -34,7 +34,7 @@ class OrderBookTest {
     @Test
     fun testAddOrderAndCheckOrderBook() {
         val orderBookService = OrderBookService()
-        val order = Order(
+        val limitOrder = LimitOrder(
             allowMargin = "true",
             customerOrderId = "1",
             pair = "BTCUSD",
@@ -44,7 +44,7 @@ class OrderBookTest {
             side = "BUY",
             timeInForce = "GTC"
         )
-        orderBookService.addOrder(order)
+        orderBookService.addLimitOrder(limitOrder)
         val orderBook = orderBookService.getOrderBook()
         assert(orderBook.Bids.isNotEmpty())
         assert(orderBook.Asks.isEmpty())
@@ -53,7 +53,7 @@ class OrderBookTest {
     @Test
     fun testAddOrderAndCheckTradeHistory() {
         val orderBookService = OrderBookService()
-        val order = Order(
+        val limitOrder = LimitOrder(
             allowMargin = "true",
             customerOrderId = "1",
             pair = "BTCUSD",
@@ -63,7 +63,7 @@ class OrderBookTest {
             side = "BUY",
             timeInForce = "GTC"
         )
-        orderBookService.addOrder(order)
+        orderBookService.addLimitOrder(limitOrder)
         val tradeHistory = orderBookService.getTradeHistory()
         assert(tradeHistory.isEmpty())
     }
@@ -71,7 +71,7 @@ class OrderBookTest {
     @Test
     fun testAddOrderAndCheckTradeHistoryWithMatch() {
         val orderBookService = OrderBookService()
-        val order1 = Order(
+        val limitOrder1 = LimitOrder(
             allowMargin = "true",
             customerOrderId = "1",
             pair = "BTCUSD",
@@ -81,7 +81,7 @@ class OrderBookTest {
             side = "SELL",
             timeInForce = "GTC"
         )
-        val order2 = Order(
+        val limitOrder2 = LimitOrder(
             allowMargin = "true",
             customerOrderId = "2",
             pair = "BTCUSD",
@@ -91,8 +91,8 @@ class OrderBookTest {
             side = "BUY",
             timeInForce = "GTC"
         )
-        orderBookService.addOrder(order1)
-        orderBookService.addOrder(order2)
+        orderBookService.addLimitOrder(limitOrder1)
+        orderBookService.addLimitOrder(limitOrder2)
         val tradeHistory = orderBookService.getTradeHistory()
         assert(tradeHistory.isNotEmpty())
     }
@@ -100,7 +100,7 @@ class OrderBookTest {
     @Test
     fun testAddOrderAndCheckTradeHistoryWithNoMatch() {
         val orderBookService = OrderBookService()
-        val order1 = Order(
+        val limitOrder1 = LimitOrder(
             allowMargin = "true",
             customerOrderId = "1",
             pair = "BTCUSD",
@@ -110,7 +110,7 @@ class OrderBookTest {
             side = "BUY",
             timeInForce = "GTC"
         )
-        val order2 = Order(
+        val limitOrder2 = LimitOrder(
             allowMargin = "true",
             customerOrderId = "2",
             pair = "BTCUSD",
@@ -120,8 +120,8 @@ class OrderBookTest {
             side = "SELL",
             timeInForce = "GTC"
         )
-        orderBookService.addOrder(order1)
-        orderBookService.addOrder(order2)
+        orderBookService.addLimitOrder(limitOrder1)
+        orderBookService.addLimitOrder(limitOrder2)
         val tradeHistory = orderBookService.getTradeHistory()
         assert(tradeHistory.isEmpty())
     }
@@ -129,7 +129,7 @@ class OrderBookTest {
     @Test
     fun testAddOrderAndCheckOrderBookWithMatch() {
         val orderBookService = OrderBookService()
-        val order1 = Order(
+        val limitOrder1 = LimitOrder(
             allowMargin = "true",
             customerOrderId = "1",
             pair = "BTCUSD",
@@ -139,7 +139,7 @@ class OrderBookTest {
             side = "SELL",
             timeInForce = "GTC"
         )
-        val order2 = Order(
+        val limitOrder2 = LimitOrder(
             allowMargin = "true",
             customerOrderId = "2",
             pair = "BTCUSD",
@@ -149,8 +149,8 @@ class OrderBookTest {
             side = "BUY",
             timeInForce = "GTC"
         )
-        orderBookService.addOrder(order1)
-        orderBookService.addOrder(order2)
+        orderBookService.addLimitOrder(limitOrder1)
+        orderBookService.addLimitOrder(limitOrder2)
         val orderBook = orderBookService.getOrderBook()
         assert(orderBook.Bids.isEmpty())
         assert(orderBook.Asks.isEmpty())
@@ -159,7 +159,7 @@ class OrderBookTest {
     @Test
     fun testAddOrderAndCheckOrderBookWithNoMatch() {
         val orderBookService = OrderBookService()
-        val order1 = Order(
+        val limitOrder1 = LimitOrder(
             allowMargin = "true",
             customerOrderId = "1",
             pair = "BTCUSD",
@@ -169,7 +169,7 @@ class OrderBookTest {
             side = "BUY",
             timeInForce = "GTC"
         )
-        val order2 = Order(
+        val limitOrder2 = LimitOrder(
             allowMargin = "true",
             customerOrderId = "2",
             pair = "BTCUSD",
@@ -179,8 +179,8 @@ class OrderBookTest {
             side = "SELL",
             timeInForce = "GTC"
         )
-        orderBookService.addOrder(order1)
-        orderBookService.addOrder(order2)
+        orderBookService.addLimitOrder(limitOrder1)
+        orderBookService.addLimitOrder(limitOrder2)
         val orderBook = orderBookService.getOrderBook()
         assert(orderBook.Bids.isNotEmpty())
         assert(orderBook.Asks.isNotEmpty())
@@ -189,7 +189,7 @@ class OrderBookTest {
     @Test
     fun testAddOrderAndCheckOpenOrders() {
         val orderBookService = OrderBookService()
-        val order = Order(
+        val limitOrder = LimitOrder(
             allowMargin = "true",
             customerOrderId = "1",
             pair = "BTCUSD",
@@ -199,7 +199,7 @@ class OrderBookTest {
             side = "BUY",
             timeInForce = "GTC"
         )
-        orderBookService.addOrder(order)
+        orderBookService.addLimitOrder(limitOrder)
         val openOrders = orderBookService.getOpenOrders()
         assert(openOrders.isNotEmpty())
     }

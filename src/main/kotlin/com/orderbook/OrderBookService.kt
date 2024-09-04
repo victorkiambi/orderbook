@@ -1,17 +1,15 @@
 package com.orderbook
 
-import com.orderbook.models.OpenOrder
-import com.orderbook.models.Order
-import com.orderbook.models.OrderBook
-import com.orderbook.models.Trade
+import com.orderbook.models.*
 import org.slf4j.LoggerFactory
 import java.util.*
 
 class OrderBookService {
-    private val asks = PriorityQueue<Order>(compareBy { it.price.toDouble() })
-    private val bids = PriorityQueue<Order>(compareByDescending { it.price.toDouble() })
+    private val asks = PriorityQueue<LimitOrder>(compareBy { it.price.toDouble() })
+    private val bids = PriorityQueue<LimitOrder>(compareByDescending { it.price.toDouble() })
     var trades = mutableListOf<Trade>()
     private var openOrders = mutableListOf<OpenOrder>()
+    private var orders = mutableListOf<Order>()
 
     private val logger = LoggerFactory.getLogger(OrderBookService::class.java)
 
@@ -24,21 +22,20 @@ class OrderBookService {
         )
     }
 
-    fun addOrder(order: Order): Trade? {
-        if (order.side.uppercase() == "BUY") {
-            bids.offer(order)
+    fun addLimitOrder(limitOrder: LimitOrder): String {
+        val orderId = UUID.randomUUID().toString()
+        if (limitOrder.side.uppercase() == "BUY") {
+            bids.offer(limitOrder)
+            addToOrders(limitOrder, orderId, "PLACED")
+            addToOpenOrders(limitOrder, orderId, "PLACED")
 
-        } else if (order.side.uppercase() == "SELL") {
-            asks.offer(order)
+        } else if (limitOrder.side.uppercase() == "SELL") {
+            asks.offer(limitOrder)
+            addToOrders(limitOrder, orderId, "PLACED")
+            addToOpenOrders(limitOrder, orderId, "PLACED")
         }
-        val trade = matchOrders()
-        if (trade != null) {
-           addToOpenOrders(order, "PLACED")
-        }
-        else {
-            addToOpenOrders(order, "PARTIALLY_FILLED")
-        }
-        return trade
+        matchOrders()
+        return orderId
     }
 
     private fun matchOrders(): Trade? {
@@ -74,38 +71,81 @@ class OrderBookService {
         bid.quantity = (bid.quantity.toDouble() - tradeQuantity.toDouble()).toString()
         ask.quantity = (ask.quantity.toDouble() - tradeQuantity.toDouble()).toString()
 
+        val orderId = UUID.randomUUID().toString()
         // Remove fully fulfilled orders
-        if (bid.quantity.toDouble() == 0.0) bids.poll() else addToOpenOrders(bid, "PARTIALLY_FILLED")
-        if (ask.quantity.toDouble() == 0.0) asks.poll() else addToOpenOrders(ask, "PARTIALLY_FILLED")
+        if (bid.quantity.toDouble() == 0.0){
+            bids.poll()
+            updateOrderStatus(bid.customerOrderId, "FILLED")
+        } else
+            addToOpenOrders(bid, orderId, "PARTIALLY_FILLED")
+
+        if (ask.quantity.toDouble() == 0.0){
+            asks.poll()
+            updateOrderStatus(ask.customerOrderId, "FILLED")
+        }
+        else
+            addToOpenOrders(ask, orderId, "PARTIALLY_FILLED")
 
         return trade
     }
 
-    //add order to open orders
-    private fun addToOpenOrders(order: Order, status: String) {
-        if (order.quantity.toDouble() == 0.0) {
-            openOrders.removeIf { it.orderId == order.customerOrderId }
-            logger.info("Order fully filled and removed from open orders: ${order.customerOrderId}")
-        } else {
-            val openOrder = OpenOrder(
-                allowMargin = false,
-                createdAt = Date().toString(),
-                currencyPair = order.pair,
-                filledPercentage = "0",
-                orderId = order.customerOrderId,
-                originalQuantity = order.quantity,
-                price = order.price,
-                remainingQuantity = order.quantity,
-                side = order.side,
-                status = status,
-                timeInForce = "GTC",
-                type = "LIMIT",
-                updatedAt = Date().toString()
-            )
-            openOrders.add(openOrder)
-            logger.info("Open order added: $openOrder")
+    private fun updateOrderStatus(orderId: String, status: String) {
+        val order = orders.find { it.customerOrderId == orderId }
+        if (order != null) {
+            order.orderStatusType = status
+            logger.info("Order status updated: $order")
+            removeFromOpenOrders(order.orderId)
         }
     }
+
+    //add order to open orders
+    private fun addToOpenOrders(limitOrder: LimitOrder, orderId: String, status: String) {
+        val openOrder = OpenOrder(
+            allowMargin = false,
+            createdAt = Date().toString(),
+            currencyPair = limitOrder.pair,
+            filledPercentage = "0",
+            orderId =orderId,
+            originalQuantity = limitOrder.quantity,
+            price = limitOrder.price,
+            remainingQuantity = limitOrder.quantity,
+            side = limitOrder.side,
+            status = status,
+            timeInForce = "GTC",
+            type = "LIMIT",
+            updatedAt = Date().toString()
+        )
+            openOrders.add(openOrder)
+            logger.info("Open order added: $openOrder")
+
+    }
+
+    //add order to orders
+    private fun addToOrders(limitOrder: LimitOrder, orderId: String, status: String) {
+        val order = Order(
+            currencyPair = limitOrder.pair,
+            orderId = orderId,
+            originalQuantity = limitOrder.quantity,
+            remainingQuantity = limitOrder.quantity,
+            timeInForce = "GTC",
+            customerOrderId = limitOrder.customerOrderId,
+            failedReason = null.toString(),
+            orderCreatedAt = Date().toString(),
+            orderSide = limitOrder.side,
+            orderStatusType = status,
+            orderType = "LIMIT",
+            orderUpdatedAt = Date().toString(),
+            originalPrice = limitOrder.price
+        )
+        orders.add(order)
+        logger.info("Order added: $order")
+    }
+
+    private fun removeFromOpenOrders(orderId: String) {
+        openOrders.removeIf { it.orderId == orderId }
+        logger.info("Order with orderId: $orderId removed from open orders")
+    }
+
     //get trade history
     fun getTradeHistory(): List<Trade>{
         logger.info("Trade history: $trades")
@@ -116,5 +156,22 @@ class OrderBookService {
     fun getOpenOrders(): List<OpenOrder>{
         logger.info("Open orders: $openOrders")
         return openOrders
+    }
+
+    //get orders
+    fun getOrders(): List<Order>{
+        logger.info("Orders: $orders")
+        return orders
+    }
+
+    //get order by orderId
+    fun getOrderByOrderId(orderId: String): Order? {
+        val order = orders.find { it.orderId == orderId }
+        logger.info("Order by orderId: $order")
+        return order
+    }
+
+    fun isCustomerOrderIdUnique(customerOrderId: String): Boolean {
+        return orders.none { it.customerOrderId == customerOrderId }
     }
 }
