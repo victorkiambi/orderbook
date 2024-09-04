@@ -185,4 +185,22 @@ class OrderBookTest {
         assert(orderBook.Bids.isNotEmpty())
         assert(orderBook.Asks.isNotEmpty())
     }
+
+    @Test
+    fun testAddOrderAndCheckOpenOrders() {
+        val orderBookService = OrderBookService()
+        val order = Order(
+            allowMargin = "true",
+            customerOrderId = "1",
+            pair = "BTCUSD",
+            postOnly = true,
+            price = "10000",
+            quantity = "1",
+            side = "BUY",
+            timeInForce = "GTC"
+        )
+        orderBookService.addOrder(order)
+        val openOrders = orderBookService.getOpenOrders()
+        assert(openOrders.isNotEmpty())
+    }
 }

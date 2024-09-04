@@ -1,5 +1,6 @@
 package com.orderbook
 
+import com.orderbook.models.OpenOrder
 import com.orderbook.models.Order
 import com.orderbook.models.OrderBook
 import com.orderbook.models.Trade
@@ -10,6 +11,8 @@ class OrderBookService {
     private val asks = PriorityQueue<Order>(compareBy { it.price.toDouble() })
     private val bids = PriorityQueue<Order>(compareByDescending { it.price.toDouble() })
     var trades = mutableListOf<Trade>()
+    private var openOrders = mutableListOf<OpenOrder>()
+
     private val logger = LoggerFactory.getLogger(OrderBookService::class.java)
 
 
@@ -28,7 +31,14 @@ class OrderBookService {
         } else if (order.side.uppercase() == "SELL") {
             asks.offer(order)
         }
-        return matchOrders()
+        val trade = matchOrders()
+        if (trade != null) {
+           addToOpenOrders(order, "PLACED")
+        }
+        else {
+            addToOpenOrders(order, "PARTIALLY_FILLED")
+        }
+        return trade
     }
 
     private fun matchOrders(): Trade? {
@@ -65,15 +75,46 @@ class OrderBookService {
         ask.quantity = (ask.quantity.toDouble() - tradeQuantity.toDouble()).toString()
 
         // Remove fully fulfilled orders
-        if (bid.quantity.toDouble() == 0.0) bids.poll()
-        if (ask.quantity.toDouble() == 0.0) asks.poll()
+        if (bid.quantity.toDouble() == 0.0) bids.poll() else addToOpenOrders(bid, "PARTIALLY_FILLED")
+        if (ask.quantity.toDouble() == 0.0) asks.poll() else addToOpenOrders(ask, "PARTIALLY_FILLED")
 
         return trade
     }
-    
+
+    //add order to open orders
+    private fun addToOpenOrders(order: Order, status: String) {
+        if (order.quantity.toDouble() == 0.0) {
+            openOrders.removeIf { it.orderId == order.customerOrderId }
+            logger.info("Order fully filled and removed from open orders: ${order.customerOrderId}")
+        } else {
+            val openOrder = OpenOrder(
+                allowMargin = false,
+                createdAt = Date().toString(),
+                currencyPair = order.pair,
+                filledPercentage = "0",
+                orderId = order.customerOrderId,
+                originalQuantity = order.quantity,
+                price = order.price,
+                remainingQuantity = order.quantity,
+                side = order.side,
+                status = status,
+                timeInForce = "GTC",
+                type = "LIMIT",
+                updatedAt = Date().toString()
+            )
+            openOrders.add(openOrder)
+            logger.info("Open order added: $openOrder")
+        }
+    }
     //get trade history
     fun getTradeHistory(): List<Trade>{
         logger.info("Trade history: $trades")
         return trades
+    }
+
+    //get open orders
+    fun getOpenOrders(): List<OpenOrder>{
+        logger.info("Open orders: $openOrders")
+        return openOrders
     }
 }

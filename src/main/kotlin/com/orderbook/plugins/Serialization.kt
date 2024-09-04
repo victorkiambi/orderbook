@@ -114,6 +114,11 @@ fun Application.configureSerialization() {
                 call.respond(HttpStatusCode.OK, tradeHistory)
             }
 
+            get("/orders/open-orders") {
+                val openOrders = service.getOpenOrders()
+                call.respond(HttpStatusCode.OK, openOrders)
+            }
+
         }
     }
 
