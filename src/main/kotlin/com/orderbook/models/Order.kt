@@ -4,12 +4,17 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class Order(
-    val allowMargin: String,
+    val currencyPair: String,
     val customerOrderId: String,
-    val pair: String,
-    val postOnly: Boolean,
-    var price: String,
-    var quantity: String,
-    val side: String,
+    val failedReason: String,
+    val orderCreatedAt: String,
+    val orderId: String,
+    val orderSide: String,
+    var orderStatusType: String,
+    val orderType: String,
+    val orderUpdatedAt: String,
+    val originalPrice: String,
+    val originalQuantity: String,
+    val remainingQuantity: String,
     val timeInForce: String
 )
