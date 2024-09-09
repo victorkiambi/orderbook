@@ -12,7 +12,7 @@ This project is a Kotlin-based order book service that handles buy and sell orde
 
 1. Clone the repository:
     ```sh
-    git clone https://github.com/yourusername/orderbook-service.git
+    git clone https://github.com/victorkiambi/orderbook.git
     cd orderbook-service
     ```
 
@@ -38,6 +38,9 @@ This project is a Kotlin-based order book service that handles buy and sell orde
     ```sh
     gradle run
     ```
+## Accessing the Application
+
+The application can be accessed at `https://valr.fly.dev/`.
 
 ## Running Tests
 
