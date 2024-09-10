@@ -1,6 +1,9 @@
 package com.orderbook
 
 import com.orderbook.models.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import java.util.*
 
@@ -21,27 +24,30 @@ class OrderBookService {
             SequenceNumber = "1".toLong()
         )
     }
-
-    fun addLimitOrder(limitOrder: LimitOrder): String {
+    fun addLimitOrder(limitOrder: LimitOrder): String = runBlocking {
         val orderId = UUID.randomUUID().toString()
-        if (limitOrder.side.uppercase() == "BUY") {
-            bids.offer(limitOrder)
-            addToOrders(limitOrder, orderId, OrderStatus.PLACED.toString())
-            addToOpenOrders(limitOrder, orderId, limitOrder.quantity,OrderStatus.PLACED.toString())
-
-        } else if (limitOrder.side.uppercase() == "SELL") {
-            asks.offer(limitOrder)
-            addToOrders(limitOrder, orderId, OrderStatus.PLACED.toString())
-            addToOpenOrders(limitOrder, orderId,limitOrder.quantity, OrderStatus.PLACED.toString())
+        withContext(Dispatchers.IO) {
+            when (limitOrder.side.uppercase()) {
+                "BUY" -> {
+                    bids.offer(limitOrder)
+                    addToOrders(limitOrder, orderId, OrderStatus.PLACED.toString())
+                    addToOpenOrders(limitOrder, orderId, limitOrder.quantity, OrderStatus.PLACED.toString())
+                }
+                "SELL" -> {
+                    asks.offer(limitOrder)
+                    addToOrders(limitOrder, orderId, OrderStatus.PLACED.toString())
+                    addToOpenOrders(limitOrder, orderId, limitOrder.quantity, OrderStatus.PLACED.toString())
+                }
+            }
+            matchOrders()
         }
-        matchOrders()
-        return orderId
+        orderId
     }
 
-    private fun matchOrders(): Trade? {
+    private suspend fun matchOrders(): Trade? = withContext(Dispatchers.IO) {
         if (bids.isEmpty() || asks.isEmpty()) {
             logger.info("No bids or asks available")
-            return null
+            return@withContext null
         }
 
         val bid = bids.peek()
@@ -50,14 +56,14 @@ class OrderBookService {
         // Early return if no match
         if (bid.price.toDouble() < ask.price.toDouble()) {
             logger.info("No match")
-            return null
+            return@withContext null
         }
 
         val tradeQuantity = minOf(bid.quantity, ask.quantity)
 
         if (tradeQuantity.toDouble() <= 0.0) {
             logger.info("Trade quantity is less than or equal to 0")
-            return null
+            return@withContext null
         }
 
         val trade = Trade(
@@ -98,7 +104,7 @@ class OrderBookService {
             createNewOrderWithRemainingQuantity(ask, newOrderId)
         }
 
-        return trade
+        return@withContext trade
     }
 
     private fun updateOrderStatus(orderId: String, status: String) {
