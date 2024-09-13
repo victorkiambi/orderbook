@@ -3,8 +3,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class OrderBook(
-    val Asks: MutableList<LimitOrder>,
-    val Bids: MutableList<LimitOrder>,
+    val Asks: MutableList<Ask>,
+    val Bids: MutableList<Bid>,
     val LastChange: String,
-    val SequenceNumber: Long
-)
+    val SequenceNumber: Long)

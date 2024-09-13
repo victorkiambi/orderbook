@@ -19,11 +19,34 @@ class OrderBookService {
 
     fun getOrderBook(): OrderBook {
         return OrderBook(
-            asks.toMutableList(), bids.toMutableList(),
+            Asks = asks.map { limitOrderToAsk(it) }.toMutableList(),
+            Bids = bids.map { limitOrderToBid(it) }.toMutableList(),
             LastChange = "",
             SequenceNumber = "1".toLong()
         )
     }
+
+    private fun limitOrderToAsk(limitOrder: LimitOrder): Ask {
+        return Ask(
+            currencyPair = limitOrder.pair,
+            orderCount = 1,  // Assuming each LimitOrder counts as one ask
+            price = limitOrder.price,
+            quantity = limitOrder.quantity,
+            side = limitOrder.side
+        )
+    }
+
+    private fun limitOrderToBid(limitOrder: LimitOrder): Bid {
+        return Bid(
+            currencyPair = limitOrder.pair,
+            orderCount = 1,  // Assuming each LimitOrder counts as one bid
+            price = limitOrder.price,
+            quantity = limitOrder.quantity,
+            side = limitOrder.side
+        )
+    }
+
+
     fun addLimitOrder(limitOrder: LimitOrder): String = runBlocking {
         val orderId = UUID.randomUUID().toString()
         withContext(Dispatchers.IO) {
@@ -38,13 +61,16 @@ class OrderBookService {
                     addToOrders(limitOrder, orderId, OrderStatus.PLACED.toString())
                     addToOpenOrders(limitOrder, orderId, limitOrder.quantity, OrderStatus.PLACED.toString())
                 }
+                else -> {
+                    logger.error("Invalid order side")
+                }
             }
-            matchOrders()
+            matchOrders(orderId)
         }
         orderId
     }
 
-    private suspend fun matchOrders(): Trade? = withContext(Dispatchers.IO) {
+    private suspend fun matchOrders(orderId: String): Trade? = withContext(Dispatchers.IO) {
         if (bids.isEmpty() || asks.isEmpty()) {
             logger.info("No bids or asks available")
             return@withContext null
@@ -140,7 +166,7 @@ class OrderBookService {
             createdAt = Date().toString(),
             currencyPair = limitOrder.pair,
             filledPercentage = (100 - (remainingQuantity.toDouble() / limitOrder.quantity.toDouble())*100).toString(),
-            orderId =orderId,
+            orderId = orderId,
             originalQuantity = limitOrder.quantity,
             price = limitOrder.price,
             remainingQuantity = remainingQuantity,

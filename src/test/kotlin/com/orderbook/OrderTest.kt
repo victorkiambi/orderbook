@@ -68,6 +68,7 @@ class OrderTest {
         orderBookService.addLimitOrder(limitOrder2)
         val orders = orderBookService.getOrders()
         assert(orders.isNotEmpty())
+        assert(orders.size == 2)
 
         val openOrders = orderBookService.getOpenOrders()
         assert(openOrders.isEmpty())
