@@ -12,7 +12,7 @@ data class Order(
     val orderSide: String,
     var orderStatusType: String,
     val orderType: String,
-    val orderUpdatedAt: String,
+    var orderUpdatedAt: String,
     val originalPrice: String,
     val originalQuantity: String,
     val remainingQuantity: String,

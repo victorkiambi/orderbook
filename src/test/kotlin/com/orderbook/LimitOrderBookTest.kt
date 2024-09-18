@@ -1,12 +1,13 @@
 package com.orderbook
 
 import com.orderbook.models.LimitOrder
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 
 
 class LimitOrderBookTest {
     @Test
-    fun testAddOrder() {
+    fun testAddOrder() = runTest {
         val orderBookService = OrderBookService()
         val limitOrder = LimitOrder(
             allowMargin = "true",
@@ -24,7 +25,7 @@ class LimitOrderBookTest {
     }
 
     @Test
-    fun testGetOrderBook() {
+    fun testGetOrderBook() = runTest {
         val orderBookService = OrderBookService()
         val orderBook = orderBookService.getOrderBook()
         assert(orderBook.Asks.isEmpty())
@@ -32,7 +33,7 @@ class LimitOrderBookTest {
     }
 
     @Test
-    fun testAddOrderAndCheckOrderBook() {
+    fun testAddOrderAndCheckOrderBook() = runTest  {
         val orderBookService = OrderBookService()
         val limitOrder = LimitOrder(
             allowMargin = "true",
@@ -51,7 +52,7 @@ class LimitOrderBookTest {
     }
 
     @Test
-    fun testAddOrderAndCheckTradeHistory() {
+    fun testAddOrderAndCheckTradeHistory() = runTest{
         val orderBookService = OrderBookService()
         val limitOrder = LimitOrder(
             allowMargin = "true",
@@ -69,7 +70,7 @@ class LimitOrderBookTest {
     }
 
     @Test
-    fun testAddOrderAndCheckTradeHistoryWithMatch() {
+    fun testAddOrderAndCheckTradeHistoryWithMatch() = runTest {
         val orderBookService = OrderBookService()
         val limitOrder1 = LimitOrder(
             allowMargin = "true",
@@ -98,7 +99,7 @@ class LimitOrderBookTest {
     }
 
     @Test
-    fun testAddOrderAndCheckTradeHistoryWithNoMatch() {
+    fun testAddOrderAndCheckTradeHistoryWithNoMatch() = runTest{
         val orderBookService = OrderBookService()
         val limitOrder1 = LimitOrder(
             allowMargin = "true",
@@ -127,7 +128,7 @@ class LimitOrderBookTest {
     }
 
     @Test
-    fun testAddOrderAndCheckOrderBookWithMatch() {
+    fun testAddOrderAndCheckOrderBookWithMatch() = runTest {
         val orderBookService = OrderBookService()
         val limitOrder1 = LimitOrder(
             allowMargin = "true",
@@ -157,7 +158,7 @@ class LimitOrderBookTest {
     }
 
     @Test
-    fun testAddOrderAndCheckOrderBookWithNoMatch() {
+    fun testAddOrderAndCheckOrderBookWithNoMatch() = runTest {
         val orderBookService = OrderBookService()
         val limitOrder1 = LimitOrder(
             allowMargin = "true",
@@ -187,7 +188,7 @@ class LimitOrderBookTest {
     }
 
     @Test
-    fun testAddOrderAndCheckOpenOrders() {
+    fun testAddOrderAndCheckOpenOrders() = runTest {
         val orderBookService = OrderBookService()
         val limitOrder = LimitOrder(
             allowMargin = "true",

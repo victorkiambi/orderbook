@@ -1,11 +1,12 @@
 package com.orderbook
 
 import com.orderbook.models.LimitOrder
+import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
 class MatchingEngineTest {
     @Test
-    fun testAddBidOrderNoMatch() {
+    fun testAddBidOrderNoMatch()= runTest {
         val orderBookService = OrderBookService()
         val limitOrder = LimitOrder(
             allowMargin = "true",
@@ -27,7 +28,7 @@ class MatchingEngineTest {
     }
 
     @Test
-    fun testAddAskOrderNoMatch() {
+    fun testAddAskOrderNoMatch()= runTest {
         val orderBookService = OrderBookService()
         val limitOrder = LimitOrder(
             allowMargin = "true",
@@ -49,7 +50,7 @@ class MatchingEngineTest {
     }
 
     @Test
-    fun testAddBidOrderMatch() {
+    fun testAddBidOrderMatch()= runTest {
         val orderBookService = OrderBookService()
         val limitOrder1 = LimitOrder(
             allowMargin = "true",
@@ -82,7 +83,7 @@ class MatchingEngineTest {
     }
 
     @Test
-    fun testAddAskOrderMatch() {
+    fun testAddAskOrderMatch()= runTest {
         val orderBookService = OrderBookService()
         val limitOrder1 = LimitOrder(
             allowMargin = "true",
@@ -115,7 +116,7 @@ class MatchingEngineTest {
     }
 
     @Test
-    fun testAddBidOrderMatchQuantity() {
+    fun testAddBidOrderMatchQuantity()= runTest {
         val orderBookService = OrderBookService()
         val limitOrder1 = LimitOrder(
             allowMargin = "true",
@@ -146,11 +147,11 @@ class MatchingEngineTest {
         //assert that there is a trade
         assert(orderBookService.trades.isNotEmpty())
         //assert that the trade quantity is 1
-        assert(orderBookService.trades.first().quantity == "1")
+        assert(orderBookService.trades.first().quantity.toDouble() == 1.0)
     }
 
     @Test
-    fun testAddBidOrderMatchQuantityMultipleAsks() {
+    fun testAddBidOrderMatchQuantityMultipleAsks()= runTest {
         val orderBookService = OrderBookService()
         val limitOrder1 = LimitOrder(
             allowMargin = "true",
@@ -191,13 +192,13 @@ class MatchingEngineTest {
         //assert that there are two trades
         assert(orderBookService.trades.size == 2)
         //assert that the first trade quantity is 1
-        assert(orderBookService.trades.first().quantity == "1")
+        assert(orderBookService.trades.first().quantity.toDouble() == 1.0)
         //assert that the second trade quantity is 1
-        assert(orderBookService.trades[1].quantity == "1")
+        assert(orderBookService.trades[1].quantity.toDouble() == 1.0)
     }
 
     @Test
-    fun testAddBidOrderMatchQuantityMultipleBids() {
+    fun testAddBidOrderMatchQuantityMultipleBids()= runTest {
         val orderBookService = OrderBookService()
         val limitOrder1 = LimitOrder(
             allowMargin = "true",
@@ -234,10 +235,10 @@ class MatchingEngineTest {
         orderBookService.addLimitOrder(limitOrder3)
         val orderBook = orderBookService.getOrderBook()
         assert(orderBook.Bids.isNotEmpty())
-        assert(orderBook.Asks.isNotEmpty())
+        assert(orderBook.Asks.isEmpty())
         //assert that there's 1 trade
         assert(orderBookService.trades.size == 1)
         //assert that the first trade quantity is 1
-        assert(orderBookService.trades.first().quantity == "1")
+        assert(orderBookService.trades.first().quantity.toDouble() == 1.0)
     }
 }

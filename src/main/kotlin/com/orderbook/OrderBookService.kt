@@ -1,11 +1,12 @@
 package com.orderbook
 
 import com.orderbook.models.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.slf4j.LoggerFactory
+import java.time.Instant
 import java.util.*
+import java.util.concurrent.atomic.AtomicLong
 
 class OrderBookService {
     private val asks = PriorityQueue<LimitOrder>(compareBy { it.price.toDouble() })
@@ -15,7 +16,8 @@ class OrderBookService {
     private var orders = mutableListOf<Order>()
 
     private val logger = LoggerFactory.getLogger(OrderBookService::class.java)
-
+    private val sequenceCounter = AtomicLong(0)
+    private val mutex = Mutex()
 
     fun getOrderBook(): OrderBook {
         return OrderBook(
@@ -47,123 +49,105 @@ class OrderBookService {
     }
 
 
-    fun addLimitOrder(limitOrder: LimitOrder): String = runBlocking {
+    suspend fun addLimitOrder(limitOrder: LimitOrder): String {
         val orderId = UUID.randomUUID().toString()
-        withContext(Dispatchers.IO) {
+        mutex.withLock {
             when (limitOrder.side.uppercase()) {
-                "BUY" -> {
-                    bids.offer(limitOrder)
-                    addToOrders(limitOrder, orderId, OrderStatus.PLACED.toString())
-                    addToOpenOrders(limitOrder, orderId, limitOrder.quantity, OrderStatus.PLACED.toString())
-                }
-                "SELL" -> {
-                    asks.offer(limitOrder)
-                    addToOrders(limitOrder, orderId, OrderStatus.PLACED.toString())
-                    addToOpenOrders(limitOrder, orderId, limitOrder.quantity, OrderStatus.PLACED.toString())
-                }
+                "BUY" -> processOrder(limitOrder, orderId, bids)
+                "SELL" -> processOrder(limitOrder, orderId, asks)
                 else -> {
                     logger.error("Invalid order side")
                 }
             }
-            matchOrders(orderId)
+            matchOrders()
         }
-        orderId
+        return orderId
     }
 
-    private suspend fun matchOrders(orderId: String): Trade? = withContext(Dispatchers.IO) {
-        if (bids.isEmpty() || asks.isEmpty()) {
-            logger.info("No bids or asks available")
-            return@withContext null
-        }
-
-        val bid = bids.peek()
-        val ask = asks.peek()
-
-        // Early return if no match
-        if (bid.price.toDouble() < ask.price.toDouble()) {
-            logger.info("No match")
-            return@withContext null
-        }
-
-        val tradeQuantity = minOf(bid.quantity, ask.quantity)
-
-        if (tradeQuantity.toDouble() <= 0.0) {
-            logger.info("Trade quantity is less than or equal to 0")
-            return@withContext null
-        }
-
-        val trade = Trade(
-            price = ask.price,
-            quantity = tradeQuantity,
-            takerSide = if (bid.side == "BUY") "SELL" else "BUY",
-            tradedAt = Date().toString(),
-            currencyPair = bid.pair,
-            id = UUID.randomUUID().toString(),
-            quoteVolume = (tradeQuantity.toDouble() * ask.price.toDouble()).toString(),
-            sequenceId = 1
-        )
-
-        trades.add(trade)
-        logger.info("Trade created: $trade")
-
-        bid.quantity = (bid.quantity.toDouble() - tradeQuantity.toDouble()).toString()
-        ask.quantity = (ask.quantity.toDouble() - tradeQuantity.toDouble()).toString()
-
-        val newOrderId = UUID.randomUUID().toString()
-        // Remove fully fulfilled orders
-        if (bid.quantity.toDouble() == 0.0){
-            bids.poll()
-            updateOrderStatus(bid.customerOrderId, OrderStatus.FILLED.toString())
-        } else{
-            bids.poll()
-            updateOrderStatus(bid.customerOrderId, OrderStatus.PARTIALLY_FILLED.toString())
-            createNewOrderWithRemainingQuantity(ask, newOrderId)
-        }
-
-        if (ask.quantity.toDouble() == 0.0){
-            asks.poll()
-            updateOrderStatus(ask.customerOrderId, OrderStatus.FILLED.toString())
-        }
-        else {
-            asks.poll()
-            updateOrderStatus(ask.customerOrderId, OrderStatus.PARTIALLY_FILLED.toString())
-            createNewOrderWithRemainingQuantity(ask, newOrderId)
-        }
-
-        return@withContext trade
+    private fun processOrder(limitOrder: LimitOrder, orderId: String, queue: PriorityQueue<LimitOrder>) {
+        queue.offer(limitOrder)
+        addToOrders(limitOrder, orderId, OrderStatus.PLACED.toString())
+        addToOpenOrders(limitOrder, orderId, limitOrder.quantity, OrderStatus.PLACED.toString())
     }
 
-    private fun updateOrderStatus(orderId: String, status: String) {
-        val order = orders.find { it.customerOrderId == orderId }
+
+    private fun matchOrders() {
+        while (bids.isNotEmpty() && asks.isNotEmpty()) {
+            val bid = bids.peek()  // Get the highest bid
+            val ask = asks.peek()  // Get the lowest ask
+
+            // Early exit if there are no matching orders
+            if (bid.price.toDouble() < ask.price.toDouble()) break
+
+            // Determine the trade quantity (the minimum of the bid and ask quantities)
+            val tradeQuantity = minOf(bid.quantity.toDouble(), ask.quantity.toDouble())
+
+            // Handle cases where trade quantity is invalid
+            if (tradeQuantity <= 0.0) {
+                logger.info("Trade quantity is less than or equal to 0")
+                break
+            }
+
+            // Create a new trade record
+            val trade = Trade(
+                price = ask.price,
+                quantity = tradeQuantity.toString(),
+                takerSide = if (bid.side == "BUY") "SELL" else "BUY",
+                tradedAt = Instant.now().toString(),
+                currencyPair = bid.pair,
+                id = UUID.randomUUID().toString(),
+                quoteVolume = (tradeQuantity * ask.price.toDouble()).toString(),
+                sequenceId = sequenceCounter.incrementAndGet()
+            )
+
+            trades.add(trade)
+            logger.info("Trade created: $trade")
+
+            // Update the quantities of the bid and ask
+            val updatedBidQuantity = bid.quantity.toDouble() - tradeQuantity
+            val updatedAskQuantity = ask.quantity.toDouble() - tradeQuantity
+
+            // Remove fully matched bid and ask from the queues
+            bids.poll()
+            asks.poll()
+
+            // If bid is partially filled, reinsert it with the updated quantity
+            if (updatedBidQuantity == 0.0) {
+                updateOrderStatus(bid.customerOrderId, OrderStatus.FILLED.toString())
+            } else {
+                updateOrderStatus(bid.customerOrderId, OrderStatus.PARTIALLY_FILLED.toString())
+                val updatedBid = bid.copy(quantity = updatedBidQuantity.toString())
+                bids.offer(updatedBid)  // Reinsert the partially filled bid
+            }
+
+            // If ask is partially filled, reinsert it with the updated quantity
+            if (updatedAskQuantity == 0.0) {
+                updateOrderStatus(ask.customerOrderId, OrderStatus.FILLED.toString())
+            } else {
+                updateOrderStatus(ask.customerOrderId, OrderStatus.PARTIALLY_FILLED.toString())
+                val updatedAsk = ask.copy(quantity = updatedAskQuantity.toString())
+                asks.offer(updatedAsk)  // Reinsert the partially filled ask
+            }
+        }
+    }
+
+    private fun updateOrderStatus(customerOrderId: String, status: String) {
+        val order = orders.find { it.customerOrderId == customerOrderId }
         if (order != null) {
             order.orderStatusType = status
-            logger.info("Order status updated: $order")
-            removeFromOpenOrders(order.orderId)
+            order.orderUpdatedAt = Date().toString()
+            logger.info("Order status updated: customerOrderId=$customerOrderId, newStatus=$status")
+            if (status == OrderStatus.FILLED.toString()) {
+                removeFromOpenOrders(order.orderId)
+            }
         }
-    }
-
-    private fun createNewOrderWithRemainingQuantity(limitOrder: LimitOrder, newOrderId: String) {
-        // Create a new order for the remaining quantity
-        val newOrder = limitOrder.copy(
-            customerOrderId = newOrderId,
-            quantity = limitOrder.quantity
-        )
-        if (newOrder.side.uppercase() == "BUY") {
-            bids.offer(newOrder)
-        } else {
-            asks.offer(newOrder)
-        }
-
-        addToOrders(newOrder, newOrderId, OrderStatus.PLACED.toString())
-        addToOpenOrders(newOrder, newOrderId, newOrder.quantity, OrderStatus.PLACED.toString())
-        logger.info("New order created with remaining quantity: $newOrder")
     }
 
     //add order to open orders
     private fun addToOpenOrders(limitOrder: LimitOrder, orderId: String, remainingQuantity: String, status: String) {
         val openOrder = OpenOrder(
             allowMargin = false,
-            createdAt = Date().toString(),
+            createdAt = Instant.now().toString(),
             currencyPair = limitOrder.pair,
             filledPercentage = (100 - (remainingQuantity.toDouble() / limitOrder.quantity.toDouble())*100).toString(),
             orderId = orderId,
@@ -191,7 +175,7 @@ class OrderBookService {
             timeInForce = "GTC",
             customerOrderId = limitOrder.customerOrderId,
             failedReason = null.toString(),
-            orderCreatedAt = Date().toString(),
+            orderCreatedAt = Instant.now().toString(),
             orderSide = limitOrder.side,
             orderStatusType = status,
             orderType = "LIMIT",

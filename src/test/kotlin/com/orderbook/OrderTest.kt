@@ -1,12 +1,13 @@
 package com.orderbook
 
 import com.orderbook.models.LimitOrder
+import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
 class OrderTest {
 
     @Test
-    fun testAddOrder() {
+    fun testAddOrder()= runTest {
         val orderBookService = OrderBookService()
         val limitOrder = LimitOrder(
             allowMargin = "true",
@@ -24,7 +25,7 @@ class OrderTest {
     }
 
     @Test
-    fun testOpenOrders() {
+    fun testOpenOrders()= runTest {
         val orderBookService = OrderBookService()
         val limitOrder = LimitOrder(
             allowMargin = "true",
@@ -42,7 +43,7 @@ class OrderTest {
     }
 
     @Test
-    fun testMatchOrders() {
+    fun testMatchOrders()= runTest {
         val orderBookService = OrderBookService()
         val limitOrder1 = LimitOrder(
             allowMargin = "true",
@@ -75,7 +76,7 @@ class OrderTest {
     }
 
     @Test
-    fun testPartialMatchOrders() {
+    fun testPartialMatchOrders()= runTest {
         val orderBookService = OrderBookService()
         val limitOrder1 = LimitOrder(
             allowMargin = "true",
@@ -101,7 +102,7 @@ class OrderTest {
         orderBookService.addLimitOrder(limitOrder2)
         val orders = orderBookService.getOrders()
         assert(orders.isNotEmpty())
-        assert(orders.size == 3)
+        assert(orders.size == 2)
 
         val openOrders = orderBookService.getOpenOrders()
         assert(openOrders.isNotEmpty())
@@ -109,7 +110,7 @@ class OrderTest {
     }
 
     @Test
-    fun testNoMatchOrders() {
+    fun testNoMatchOrders() = runTest{
         val orderBookService = OrderBookService()
         val limitOrder1 = LimitOrder(
             allowMargin = "true",

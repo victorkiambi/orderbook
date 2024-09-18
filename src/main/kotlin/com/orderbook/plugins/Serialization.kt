@@ -107,7 +107,7 @@ fun Application.configureSerialization() {
                 } catch (e: Exception) {
                     call.respond(HttpStatusCode.BadRequest, mapOf("error" to e.message))
                 } catch (e: SerializationException) {
-                    call.respond(HttpStatusCode.BadRequest, mapOf("error" to e.message))
+                    call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invalid format"))
                 }
 
             }

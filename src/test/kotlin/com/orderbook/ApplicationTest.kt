@@ -826,7 +826,7 @@ class ApplicationTest {
             assertEquals(HttpStatusCode.OK, status)
             val orders = Json.decodeFromString<List<JsonObject>>(bodyAsText())
             assert(orders.isNotEmpty())
-            assertEquals(3, orders.size)
+            assertEquals(2, orders.size)
         }
     }
 }
