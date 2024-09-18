@@ -24,7 +24,7 @@ class OrderBookService {
             Asks = asks.map { limitOrderToAsk(it) }.toMutableList(),
             Bids = bids.map { limitOrderToBid(it) }.toMutableList(),
             LastChange = "",
-            SequenceNumber = "1".toLong()
+            SequenceNumber = sequenceCounter.incrementAndGet()
         )
     }
 
@@ -57,6 +57,7 @@ class OrderBookService {
                 "SELL" -> processOrder(limitOrder, orderId, asks)
                 else -> {
                     logger.error("Invalid order side")
+                    throw IllegalArgumentException("Invalid order side: ${limitOrder.side}")
                 }
             }
             matchOrders()
@@ -139,7 +140,7 @@ class OrderBookService {
         val order = orders.find { it.customerOrderId == customerOrderId }
         if (order != null) {
             order.orderStatusType = status
-            order.orderUpdatedAt = Date().toString()
+            order.orderUpdatedAt = Instant.now().toString()
             logger.info("Order status updated: customerOrderId=$customerOrderId, newStatus=$status")
             if (status == OrderStatus.FILLED.toString()) {
                 removeFromOpenOrders(order.orderId)
