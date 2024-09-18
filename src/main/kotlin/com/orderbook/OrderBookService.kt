@@ -73,63 +73,67 @@ class OrderBookService {
 
     private fun matchOrders() {
         while (bids.isNotEmpty() && asks.isNotEmpty()) {
-            val bid = bids.peek()  // Get the highest bid
-            val ask = asks.peek()  // Get the lowest ask
+            val bid = bids.poll()  // Get and remove the highest bid
+            val ask = asks.poll()  // Get and remove the lowest ask
 
-            // Early exit if there are no matching orders
-            if (bid.price.toDouble() < ask.price.toDouble()) break
+            val bidPrice = bid.price.toDouble()
+            val askPrice = ask.price.toDouble()
+            val bidQuantity = bid.quantity.toDouble()
+            val askQuantity = ask.quantity.toDouble()
+
+            // Exit early if no match is possible
+            if (bidPrice < askPrice) {
+                // Reinsert the bid and ask since they were polled but not matched
+                bids.offer(bid)
+                asks.offer(ask)
+                break
+            }
 
             // Determine the trade quantity (the minimum of the bid and ask quantities)
-            val tradeQuantity = minOf(bid.quantity.toDouble(), ask.quantity.toDouble())
+            val tradeQuantity = minOf(bidQuantity, askQuantity)
 
-            // Handle cases where trade quantity is invalid
+            // Exit if trade quantity is invalid (this should rarely happen)
             if (tradeQuantity <= 0.0) {
-                logger.info("Trade quantity is less than or equal to 0")
+                logger.info("Invalid trade quantity (<= 0) for bid: $bid and ask: $ask")
                 break
             }
 
             // Create a new trade record
             val trade = Trade(
                 price = ask.price,
-                quantity = tradeQuantity.toString(),
-                takerSide = if (bid.side == "BUY") "SELL" else "BUY",
+                quantity = "%.8f".format(tradeQuantity),  // Limit the precision
+                takerSide = if (bid.side.uppercase() == "BUY") "SELL" else "BUY",
                 tradedAt = Instant.now().toString(),
                 currencyPair = bid.pair,
                 id = UUID.randomUUID().toString(),
-                quoteVolume = (tradeQuantity * ask.price.toDouble()).toString(),
+                quoteVolume = "%.8f".format(tradeQuantity * askPrice),  // Volume is based on the ask price
                 sequenceId = sequenceCounter.incrementAndGet()
             )
-
             trades.add(trade)
             logger.info("Trade created: $trade")
 
-            // Update the quantities of the bid and ask
-            val updatedBidQuantity = bid.quantity.toDouble() - tradeQuantity
-            val updatedAskQuantity = ask.quantity.toDouble() - tradeQuantity
+            // Update remaining quantities
+            val remainingBidQuantity = bidQuantity - tradeQuantity
+            val remainingAskQuantity = askQuantity - tradeQuantity
 
-            // Remove fully matched bid and ask from the queues
-            bids.poll()
-            asks.poll()
-
-            // If bid is partially filled, reinsert it with the updated quantity
-            if (updatedBidQuantity == 0.0) {
-                updateOrderStatus(bid.customerOrderId, OrderStatus.FILLED.toString())
-            } else {
-                updateOrderStatus(bid.customerOrderId, OrderStatus.PARTIALLY_FILLED.toString())
-                val updatedBid = bid.copy(quantity = updatedBidQuantity.toString())
+            // If the bid is partially filled, reinsert it with the updated quantity
+            if (remainingBidQuantity > 0) {
+                val updatedBid = bid.copy(quantity = "%.8f".format(remainingBidQuantity))
                 bids.offer(updatedBid)  // Reinsert the partially filled bid
+            } else {
+                updateOrderStatus(bid.customerOrderId, OrderStatus.FILLED.toString())
             }
 
-            // If ask is partially filled, reinsert it with the updated quantity
-            if (updatedAskQuantity == 0.0) {
-                updateOrderStatus(ask.customerOrderId, OrderStatus.FILLED.toString())
-            } else {
-                updateOrderStatus(ask.customerOrderId, OrderStatus.PARTIALLY_FILLED.toString())
-                val updatedAsk = ask.copy(quantity = updatedAskQuantity.toString())
+            // If the ask is partially filled, reinsert it with the updated quantity
+            if (remainingAskQuantity > 0) {
+                val updatedAsk = ask.copy(quantity = "%.8f".format(remainingAskQuantity))
                 asks.offer(updatedAsk)  // Reinsert the partially filled ask
+            } else {
+                updateOrderStatus(ask.customerOrderId, OrderStatus.FILLED.toString())
             }
         }
     }
+
 
     private fun updateOrderStatus(customerOrderId: String, status: String) {
         val order = orders.find { it.customerOrderId == customerOrderId }
